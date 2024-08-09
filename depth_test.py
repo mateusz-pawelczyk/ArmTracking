@@ -27,13 +27,17 @@ csv_writer = None
 recording = False
 frame_count = 0
 
+recording_num = 0
+
 def start_recording():
-    global csvfile, csv_writer, recording, frame_count
-    csvfile = open(output_file, mode='w', newline='')
+    global csvfile, csv_writer, recording, frame_count, recording_num
+    file = f'hand_tracking_data_{recording_num}.csv'
+    csvfile = open(file, mode='w', newline='')
     csv_writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     csv_writer.writerow(['Frame', 'X', 'Y', 'Z'])  # Write header
     recording = True
     frame_count = 0
+    recording_num += 1
     print("Recording started. Press 's' to stop recording.")
 
 def stop_recording():
