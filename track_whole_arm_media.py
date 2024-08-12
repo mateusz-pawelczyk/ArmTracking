@@ -3,6 +3,7 @@ import numpy as np
 import cv2
 import mediapipe as mp
 import csv
+import pandas as pd
 
 # Configure depth and color streams
 pipeline = rs.pipeline()
@@ -14,7 +15,7 @@ profile = pipeline.start(config)
 # Initialize MediaPipe
 mp_hands = mp.solutions.hands
 mp_pose = mp.solutions.pose
-hands = mp_hands.Hands(min_detection_confidence=0.55, min_tracking_confidence=0.5)
+hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.55, min_tracking_confidence=0.5)
 pose = mp_pose.Pose(min_detection_confidence=0.55, min_tracking_confidence=0.55)
 mp_drawing = mp.solutions.drawing_utils
 
@@ -40,7 +41,13 @@ def z_relative_to_absolute(z_relational_point_absolute, z_relational_point_relat
 
 recording = False
 
-CALIBRATION_FACTOR_HAND = None
+CALIBRATION_FACTOR_SHOULDER = None
+CALIBRATION_FACTOR_WRIST = None
+CALIBRATION_FACTOR_FINGER = 0
+CALIBRATION_FACTOR_FINGER_INDEX = 0
+CALIBRATION_FACTOR_FINGER_SUM = 0
+
+ROW_CSV = []
 
 try:
     while True:
@@ -58,25 +65,16 @@ try:
 
         # Visualize and record arm landmarks with depth
         if pose_results.pose_landmarks:
-            connections = [(mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_ELBOW),
-                           (mp_pose.PoseLandmark.RIGHT_ELBOW, mp_pose.PoseLandmark.RIGHT_WRIST)]
-            for connection in connections:           
-                start_point = pose_results.pose_landmarks.landmark[connection[0]]
-                end_point = pose_results.pose_landmarks.landmark[connection[1]]
-                x1, y1 = int(start_point.x * color_image.shape[1]), int(start_point.y * color_image.shape[0])
-                x2, y2 = int(end_point.x * color_image.shape[1]), int(end_point.y * color_image.shape[0])
+            connections = [mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_ELBOW]
+            for landmark in pose_results.pose_landmarks.landmark:           
+                x, y = int(landmark.x * color_image.shape[1]), int(landmark.y * color_image.shape[0])
                 
+                if point_in_screen(landmark.x, landmark.y):
+                    depth1 = depth_frame.get_distance(x, y)
 
-                cv2.line(color_image, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                if point_in_screen(x1,y1) and point_in_screen(x2,y2):
-                    depth1 = depth_frame.get_distance(x1, y1)
-                    depth2 = depth_frame.get_distance(x2, y2)
-                    if not CALIBRATION_POINT_HAND and connection[0] == mp_pose.PoseLandmark.RIGHT_WRIST:
-                        CALIBRATION_POINT_HAND = abs(depth1/ start_point.z)
-                    elif not CALIBRATION_POINT_HAND and connection[1] == mp_pose.PoseLandmark.RIGHT_WRIST:
-                        CALIBRATION_POINT_HAND = abs(depth2/ end_point.z)
-                    cv2.putText(color_image, f'{depth1:.2f}m', (x1, y1), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-                    cv2.putText(color_image, f'{depth2:.2f}m', (x2, y2), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(color_image, f'{depth1:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+
+                    ROW_CSV.append(x)
 
                 if recording:
                     csv_writer.writerow(['Pose', connection[0], start_point.x, start_point.y, start_point.z, depth1])
@@ -86,18 +84,49 @@ try:
         # Visualize hands without displaying depth information
         if hand_results.multi_hand_landmarks:
             for hand_landmarks in hand_results.multi_hand_landmarks:
-                for id, landmark in enumerate(hand_landmarks.landmark):
-                    if CALIBRATION_FACTOR_HAND:
-                        absolute_depth = abs(landmark.z) *CALIBRATION_FACTOR_HAND
-                        if id == mp_hands.HandLandmark.INDEX_FINGER_TIP:
-                            cv2.putText(color_image, f'{absolute_depth:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-
-                    x = int(landmark.x * color_image.shape[1])
-                    y = int(landmark.y * color_image.shape[0])
-                    
-                    color_image, hand_landmarks, mp_hands.HAND_CONNECTIONS,
+                # Korrekter Aufruf von mp_drawing.draw_landmarks
+                mp_drawing.draw_landmarks(
+                    color_image, 
+                    hand_landmarks, 
+                    mp_hands.HAND_CONNECTIONS,
                     mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4),
                     mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2)
+                )
+                z_fingertip_rel = 0
+                z_wrist_rel = 0
+                z_fingertip_abs = 0
+                z_wrist_abs = 0
+
+                z_wrist_rel_temp = 0
+                z_fingertip_rel_temp = 0
+                
+                for id, landmark in enumerate(hand_landmarks.landmark):
+                    x = int(landmark.x * color_image.shape[1])
+                    y = int(landmark.y * color_image.shape[0])
+                    #print(f"{CALIBRATION_FACTOR_SHOULDER=}")
+                    #print(f"{landmark.z=}")
+                    
+                    if id == mp_hands.HandLandmark.INDEX_FINGER_TIP:
+                        depth= depth_frame.get_distance(x, y)
+                        z_fingertip_rel_temp = landmark.z
+                        z_fingertip_rel = z_fingertip_rel_temp
+                        z_fingertip_abs = depth
+                    if id == mp_hands.HandLandmark.WRIST:
+                        depth= depth_frame.get_distance(x, y)
+                        z_wrist_rel_temp = landmark.z
+                        z_wrist_rel = z_wrist_rel_temp
+                        z_wrist_abs = depth
+                    if CALIBRATION_FACTOR_FINGER:
+                        depth= depth_frame.get_distance(x, y)
+                        absolute_depth = CALIBRATION_FACTOR_FINGER * (z_fingertip_rel - z_wrist_rel) + z_wrist_abs
+                        if id == mp_hands.HandLandmark.INDEX_FINGER_TIP:
+                            cv2.putText(color_image, f'{absolute_depth:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                
+                if z_fingertip_rel and z_wrist_rel and z_fingertip_abs and z_wrist_abs:
+                    CALIBRATION_FACTOR_FINGER_SUM += abs(z_fingertip_abs - z_wrist_abs) / abs(z_fingertip_rel - z_wrist_rel)
+                    CALIBRATION_FACTOR_FINGER_INDEX += 1
+                    CALIBRATION_FACTOR_FINGER = CALIBRATION_FACTOR_FINGER_SUM / CALIBRATION_FACTOR_FINGER_INDEX
+                    print(CALIBRATION_FACTOR_FINGER)
 
         
         cv2.imshow('RealSense', color_image)
@@ -108,6 +137,8 @@ try:
             else:
                 stop_recording()
         elif key == ord('q'):
+            df = pd.DataFrame(abs_and_rel, columns=['Depth', 'Landmark.z', 'Ratio'])
+            df.to_csv('abs_to_rel.csv', index=False)
             if recording:
                 stop_recording()
             break
