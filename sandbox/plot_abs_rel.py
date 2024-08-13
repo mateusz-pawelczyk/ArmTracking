@@ -2,7 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 # Load data
-df = pd.read_csv('abs_to_rel.csv')
+df = pd.read_csv('../data/abs_to_rel.csv')
 df_rel = pd.DataFrame()
 df_rel["Depth"] = df[df['Ratio'] == "finger"]["Depth"].reset_index().drop(columns=["index"]) - df[df['Ratio'] == "wrist"]["Depth"].reset_index().drop(columns=["index"])
 df_rel["Landmark.z"] = df[df['Ratio'] == "finger"]["Landmark.z"].reset_index().drop(columns=["index"]) - df[df['Ratio'] == "wrist"]["Landmark.z"].reset_index().drop(columns=["index"])

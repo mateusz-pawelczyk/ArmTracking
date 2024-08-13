@@ -5,7 +5,7 @@ import matplotlib.animation as animation
 import matplotlib.cm as cm
 
 # CSV file read
-df = pd.read_csv('recorded_data.csv')
+df = pd.read_csv('../data/recorded_data.csv')
 # Fill NaN values with the mean of the column (or choose another appropriate method)
 df.fillna(df.mean(), inplace=True)
 

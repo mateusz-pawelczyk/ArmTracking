@@ -21,7 +21,7 @@ mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7, min_tracking_confidence=0.5)
 
 # Output file for saving coordinates
-output_file = 'hand_tracking_data.csv'
+output_file = '../data/hand_tracking_data.csv'
 csvfile = None
 csv_writer = None
 recording = False

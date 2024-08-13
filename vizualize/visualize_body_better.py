@@ -4,7 +4,7 @@ import matplotlib.animation as animation
 from mpl_toolkits.mplot3d import Axes3D
 
 # Load joint coordinates from CSV file
-input_file = "joint_coordinates.csv"
+input_file = "../data/joint_coordinates.csv"
 data = []
 
 with open(input_file, 'r') as file:

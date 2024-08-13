@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Pfad zur CSV-Datei
-csv_file_path = 'hand_tracking_data.csv'
+csv_file_path = '../data/hand_tracking_data.csv'
 
 # Daten aus der CSV-Datei laden
 df = pd.read_csv(csv_file_path)

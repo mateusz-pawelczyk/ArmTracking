@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Path to the CSV file containing hand tracking data
-input_file = 'hand_tracking_data.csv'
+input_file = '../data/hand_tracking_data.csv'
 
 # Lists to store coordinates
 frames = []

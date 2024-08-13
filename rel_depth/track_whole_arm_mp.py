@@ -26,7 +26,7 @@ FRAME = 0
 
 def start_recording():
     global csvfile, csv_writer, recording
-    csvfile = open('recorded_data.csv', 'w', newline='')
+    csvfile = open('../data/recorded_data.csv', 'w', newline='')
     csv_writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
     header = [[f'X_{id}', f'Y_{id}', f'Z_{id}'] for id in range(AMOUNT_OF_LANDMARKS)]
     header_final = ["FRAME"]
@@ -47,9 +47,7 @@ def point_in_screen(point_x,point_y):
 
 recording = False
 
-CALIBRATION_FACTOR_FINGER = 0
-CALIBRATION_FACTOR_FINGER_INDEX = 0
-CALIBRATION_FACTOR_FINGER_SUM = 0
+WRIST_DETPH = None
 
 try:
     while True:
@@ -68,20 +66,24 @@ try:
 
         # Visualize and record arm landmarks with depth
         if pose_results.pose_landmarks:
-            arm_landmarks = [mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_ELBOW]
+            arm_landmarks = [mp_pose.PoseLandmark.RIGHT_SHOULDER, mp_pose.PoseLandmark.RIGHT_ELBOW, mp_pose.PoseLandmark.RIGHT_WRIST]
             for id, joint in enumerate(arm_landmarks):
+                if joint == mp_pose.PoseLandmark.RIGHT_WRIST:
+                    WRIST_DETPH = landmark.z
+                    continue
+                    
+                    
                 landmark = pose_results.pose_landmarks.landmark[joint]
                 x, y = int(landmark.x * color_image.shape[1]), int(landmark.y * color_image.shape[0])
                 
                 if point_in_screen(landmark.x, landmark.y):
-                    depth = depth_frame.get_distance(x, y)
 
-                    cv2.putText(color_image, f'{depth:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    cv2.putText(color_image, f'{landmark.z:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
                     if recording:
                         ROW_CSV[id*3] = x
                         ROW_CSV[id*3+1] = y
-                        ROW_CSV[id*3+2] = depth
+                        ROW_CSV[id*3+2] = landmark.z
 
                     
                     
@@ -98,43 +100,21 @@ try:
                     mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=4),
                     mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2)
                 )
-                z_fingertip_rel = 0
-                z_wrist_rel = 0
-                z_fingertip_abs = 0
-                z_wrist_abs = 0
-
-                z_wrist_rel_temp = 0
-                z_fingertip_rel_temp = 0
+                
                 
                 for id, landmark in enumerate(hand_landmarks.landmark):
                     x = int(landmark.x * color_image.shape[1])
                     y = int(landmark.y * color_image.shape[0])
                     
                     if point_in_screen(landmark.x, landmark.y):
-                        if id == mp_hands.HandLandmark.INDEX_FINGER_TIP:
-                            z_fingertip_rel_temp = landmark.z
-                            z_fingertip_rel = z_fingertip_rel_temp
-                            z_fingertip_abs = depth_frame.get_distance(x, y)
-                        if id == mp_hands.HandLandmark.WRIST:
-                            z_wrist_rel_temp = landmark.z
-                            z_wrist_rel = z_wrist_rel_temp
-                            z_wrist_abs = depth_frame.get_distance(x, y)
-                        if CALIBRATION_FACTOR_FINGER:
-                            depth= depth_frame.get_distance(x, y)
-                            absolute_depth = CALIBRATION_FACTOR_FINGER * (z_fingertip_rel - z_wrist_rel) + z_wrist_abs
-                            if recording:
-                                print(6 + id*3, id, len(ROW_CSV))
-                                ROW_CSV[6 + id*3] = x
-                                ROW_CSV[6 + id*3+1] = y
-                                ROW_CSV[6 + id*3+2] = depth
                             if id == mp_hands.HandLandmark.INDEX_FINGER_TIP:
-                                cv2.putText(color_image, f'{absolute_depth:.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                
-                if z_fingertip_rel and z_wrist_rel and z_fingertip_abs and z_wrist_abs:
-                    CALIBRATION_FACTOR_FINGER_SUM += abs(z_fingertip_abs - z_wrist_abs) / abs(z_fingertip_rel - z_wrist_rel)
-                    CALIBRATION_FACTOR_FINGER_INDEX += 1
-                    CALIBRATION_FACTOR_FINGER = CALIBRATION_FACTOR_FINGER_SUM / CALIBRATION_FACTOR_FINGER_INDEX
-                    #print(CALIBRATION_FACTOR_FINGER)
+                                cv2.putText(color_image, f'{(landmark.z+ [0, WRIST_DETPH][WRIST_DETPH!=None]):.2f}m', (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+
+                            if recording:
+                                ROW_CSV[id*3] = x
+                                ROW_CSV[id*3+1] = y
+                                ROW_CSV[id*3+2] = landmark.z + [0, WRIST_DETPH][WRIST_DETPH!=None]
+
 
         if recording:
             ROW_CSV[0]=FRAME
