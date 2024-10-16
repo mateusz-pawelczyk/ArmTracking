@@ -1,61 +1,44 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[4]:
+# In[97]:
 
 
 import pandas as pd
 import os
 import numpy as np
+import torch
 os.chdir('/home/tm_ba/Desktop/Bachelorarbeit_code')
 
 
-# In[14]:
+# In[98]:
 
 
 df = pd.read_csv("csv_new/processed_Trajectories.csv")
-df = df.rename(columns={"Recording": "Sequence"}).drop("Sub Frame", axis=1)
 df
 
 
-# In[28]:
+# In[99]:
+
+
+df.value_counts("Sequence")
+
+
+# In[100]:
 
 
 # Joints of interest
-joints = ['shoulder', 'shoulderElbowSupport', 'elbow', 'wrist', 'elbowWrist', 'Triangle2', 'ThumbTip']
+joints = ['shoulder', 'elbow', 'wrist', 'ThumbTip']
 coordinates = ['X', 'Y', 'Z']
 
 # Convert 'mm' to 'm' (if needed, since robot arms often use meters)
-df[[f'Mathew:{joint}:{coord} (mm)' for joint in joints for coord in coordinates]] /= 1000
+df[[f'{joint}:{coord}' for joint in joints for coord in coordinates]]
 
-# Calculate velocity (difference in position between frames)
-def calculate_velocity(df, joints, coordinates):
-    velocity_df = pd.DataFrame()
-    for joint in joints:
-        for coord in coordinates:
-            position_col = f'Mathew:{joint}:{coord} (mm)'
-            velocity_col = f'{joint}:{coord}_velocity'
-            velocity_df[velocity_col] = df.groupby('Sequence')[position_col].diff().fillna(0)  # Calculate difference between time steps
-    velocity_df["Sequence"] = df["Sequence"]
-    return velocity_df
 
-# Calculate acceleration (difference in velocity between frames)
-def calculate_acceleration(velocity_df, joints, coordinates):
-    acceleration_df = pd.DataFrame()
-    for joint in joints:
-        for coord in coordinates:
-            velocity_col = f'{joint}:{coord}_velocity'
-            acceleration_col = f'{joint}:{coord}_acceleration'
-            acceleration_df[acceleration_col] = velocity_df.groupby('Sequence')[velocity_col].diff().fillna(0)  # Difference between velocities
-    acceleration_df["Sequence"] = df["Sequence"]
-    return acceleration_df
 
-# Calculate velocity and acceleration
-velocity_df = calculate_velocity(df, joints, coordinates)
-acceleration_df = calculate_acceleration(velocity_df, joints, coordinates)
 
 # Merge position, velocity, and acceleration into one DataFrame
-full_data = pd.concat([df, velocity_df, acceleration_df], axis=1).drop(columns=["Sequence"])
+full_data = df.drop(columns=["Sequence"])
 full_data["Sequence"] = df["Sequence"]
 
 # Organize by sequence: Create sequences for the model
@@ -81,13 +64,21 @@ Y = np.array(Y)
 # X shape: (num_samples, num_features) -- for LSTMs, should reshape to (num_samples, timesteps, num_features)
 print("X shape:", X.shape)
 print("Y shape:", Y.shape)
+print(f"X range: {X.min()} to {X.max()}",)
+print(f"Y range: {Y.min()} to {Y.max()}",)
 
 
-# In[32]:
+# In[101]:
 
 
-from keras.preprocessing.sequence import pad_sequences
-import numpy as np
+full_data.value_counts("Sequence")
+
+
+# In[102]:
+
+
+import torch
+from torch.nn.utils.rnn import pad_sequence
 
 # Group data by sequence
 grouped = full_data.groupby('Sequence')
@@ -95,32 +86,47 @@ grouped = full_data.groupby('Sequence')
 # Prepare input (X) and output (Y) for each sequence individually
 X_seqs = []
 Y_seqs = []
+lengths = []  # To store original sequence lengths
 
 for _, group in grouped:
-    X_seq = group.drop(columns=['Frame', 'Sequence']).values[:-1]  # Input sequence (positions, velocities, accelerations)
-    Y_seq = group[['Mathew:shoulder:X (mm)', 'Mathew:shoulder:Y (mm)', 'Mathew:shoulder:Z (mm)',  # Output sequence (next positions)
-                   'Mathew:shoulderElbowSupport:X (mm)', 'Mathew:shoulderElbowSupport:Y (mm)', 'Mathew:shoulderElbowSupport:Z (mm)',
-                   'Mathew:elbow:X (mm)', 'Mathew:elbow:Y (mm)', 'Mathew:elbow:Z (mm)',
-                   'Mathew:wrist:X (mm)', 'Mathew:wrist:Y (mm)', 'Mathew:wrist:Z (mm)',
-                   'Mathew:elbowWrist:X (mm)', 'Mathew:elbowWrist:Y (mm)', 'Mathew:elbowWrist:Z (mm)',
-                   'Mathew:Triangle2:X (mm)', 'Mathew:Triangle2:Y (mm)', 'Mathew:Triangle2:Z (mm)',
-                   'Mathew:ThumbTip:X (mm)', 'Mathew:ThumbTip:Y (mm)', 'Mathew:ThumbTip:Z (mm)']].values[1:]  # Next positions
+    X_seq = torch.tensor(group.drop(columns=['Frame', 'Sequence']).values[:-1], dtype=torch.float32)  # Input sequence (positions, velocities, accelerations)
+    Y_seq = torch.tensor(group[['shoulder:X', 'shoulder:Y', 'shoulder:Z',  # Output sequence (next positions)
+                   'elbow:X', 'elbow:Y', 'elbow:Z',
+                   'wrist:X', 'wrist:Y', 'wrist:Z',
+                   'ThumbTip:X', 'ThumbTip:Y', 'ThumbTip:Z']].values[1:], dtype=torch.float32)  # Next positions
     
-    X_seqs.append(X_seq)
-    Y_seqs.append(Y_seq)
+    # Only add non-empty sequences
+    if len(X_seq) > 0 and len(Y_seq) > 0:
+        X_seqs.append(X_seq)
+        Y_seqs.append(Y_seq)
+        # Store original length before padding
+        lengths.append(len(X_seq))
 
-# Optional: Pad sequences to the same length if needed
-X_padded = pad_sequences(X_seqs, padding='post', dtype='float32')
-Y_padded = pad_sequences(Y_seqs, padding='post', dtype='float32')
+
+
+# Pad sequences to the same length using PyTorch pad_sequence
+X_padded = pad_sequence(X_seqs, batch_first=True, padding_value=0.0)
+Y_padded = pad_sequence(Y_seqs, batch_first=True, padding_value=0.0)
+
+# Convert original lengths to PyTorch tensor
+lengths_tensor = torch.tensor(lengths)
 
 # X_padded and Y_padded are now properly grouped by sequence, with padding if necessary
 print("X_padded shape:", X_padded.shape)
 print("Y_padded shape:", Y_padded.shape)
+print("Lengths shape:", lengths_tensor.shape)
 
 
 # ### Step 1: Data Normalization
 
-# In[51]:
+# In[103]:
+
+
+from Code.preprocessing.Model import MotionModel, AttentionLayer
+from Code.preprocessing.TransformerModel import MotionTransformerModel
+
+
+# In[104]:
 
 
 import torch
@@ -151,8 +157,11 @@ class MotionDataset(Dataset):
         return X_item, Y_item
 
 
-# In[70]:
+# In[105]:
 
+
+import torch
+from torch.utils.data import DataLoader, random_split
 
 # Convert data to PyTorch tensors
 X = torch.tensor(X_padded, dtype=torch.float32)
@@ -164,10 +173,23 @@ train_size = int(0.8 * dataset_size)
 val_size = int(0.1 * dataset_size)
 test_size = dataset_size - train_size - val_size
 
-# Create the dataset
+# Create the dataset (your MotionDataset should take X and Y as arguments)
 full_dataset = MotionDataset(X, Y)
 
-# Split the dataset FIRST
+# Split the lengths tensor in the same way as the dataset
+lengths_tensor = torch.tensor(lengths, dtype=torch.long)
+
+# Calculate the indices for splitting
+train_idx = range(0, train_size)
+val_idx = range(train_size, train_size + val_size)
+test_idx = range(train_size + val_size, dataset_size)
+
+# Split the lengths tensor using the same indices
+lengths_train = lengths_tensor[train_idx]
+lengths_val = lengths_tensor[val_idx]
+lengths_test = lengths_tensor[test_idx]
+
+# Split the dataset using the same proportions
 train_dataset, val_dataset, test_dataset = random_split(
     full_dataset, [train_size, val_size, test_size],
     generator=torch.Generator().manual_seed(42)
@@ -177,13 +199,13 @@ train_dataset, val_dataset, test_dataset = random_split(
 def compute_mean_std(dataset):
     loader = DataLoader(dataset, batch_size=len(dataset))
     X_batch, Y_batch = next(iter(loader))
-    X_flat = X_batch.view(-1, X_batch.shape[-1])
-    Y_flat = Y_batch.view(-1, Y_batch.shape[-1])
+    X_flat = X_batch.view(-1, X_batch.shape[-1])  # Flatten the data along all but the last dimension
+    Y_flat = Y_batch.view(-1, Y_batch.shape[-1])  # Flatten labels in the same way
     X_mean = X_flat.mean(dim=0)
     X_std = X_flat.std(dim=0)
     Y_mean = Y_flat.mean(dim=0)
     Y_std = Y_flat.std(dim=0)
-    # Avoid division by zero (to handle any constant feature)
+    # Avoid division by zero for any constant feature
     X_std[X_std == 0] = 1
     Y_std[Y_std == 0] = 1
     return X_mean, X_std, Y_mean, Y_std
@@ -191,118 +213,59 @@ def compute_mean_std(dataset):
 # Compute mean and std from the training set
 X_mean, X_std, Y_mean, Y_std = compute_mean_std(train_dataset)
 
-# Create normalized datasets for training, validation, and test sets
-train_dataset = MotionDataset(train_dataset.dataset.X, train_dataset.dataset.Y, X_mean, X_std, Y_mean, Y_std)
-val_dataset = MotionDataset(val_dataset.dataset.X, val_dataset.dataset.Y, X_mean, X_std, Y_mean, Y_std)
-test_dataset = MotionDataset(test_dataset.dataset.X, test_dataset.dataset.Y, X_mean, X_std, Y_mean, Y_std)
+# Now create a normalized dataset by passing the computed mean and std
+class NormalizedMotionDataset(torch.utils.data.Dataset):
+    def __init__(self, X, Y, X_mean, X_std, Y_mean, Y_std):
+        self.X = (X - X_mean) / X_std
+        self.Y = (Y - Y_mean) / Y_std
+
+    def __len__(self):
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        return self.X[idx], self.Y[idx]
+
+# Normalize each split using the mean and std from the training set
+train_X, train_Y = zip(*[(X, Y) for X, Y in train_dataset])
+val_X, val_Y = zip(*[(X, Y) for X, Y in val_dataset])
+test_X, test_Y = zip(*[(X, Y) for X, Y in test_dataset])
+
+train_X = torch.stack(train_X)
+train_Y = torch.stack(train_Y)
+val_X = torch.stack(val_X)
+val_Y = torch.stack(val_Y)
+test_X = torch.stack(test_X)
+test_Y = torch.stack(test_Y)
+
+# Create normalized datasets
+train_dataset = NormalizedMotionDataset(train_X, train_Y, X_mean, X_std, Y_mean, Y_std)
+val_dataset = NormalizedMotionDataset(val_X, val_Y, X_mean, X_std, Y_mean, Y_std)
+test_dataset = NormalizedMotionDataset(test_X, test_Y, X_mean, X_std, Y_mean, Y_std)
+
+# Now you have normalized datasets for training, validation, and testing
+print(f"Train dataset length: {len(train_dataset)}")
+print(f"Validation dataset length: {len(val_dataset)}")
+print(f"Test dataset length: {len(test_dataset)}")
 
 
 # ### Step 2: Model Implementation
 
-# In[54]:
+# In[106]:
 
 
 import torch.nn as nn
 import torch.nn.functional as F
 
-class AttentionLayer(nn.Module):
-    def __init__(self, hidden_dim):
-        super(AttentionLayer, self).__init__()
-        self.W = nn.Linear(hidden_dim * 2, hidden_dim * 2, bias=False)
-        self.u = nn.Linear(hidden_dim * 2, 1, bias=False)
-        
-    def forward(self, inputs, mask):
-        # inputs: [batch_size, seq_len, hidden_dim*2]
-        # mask: [batch_size, seq_len]
-        
-        # Linear transformation
-        u_it = torch.tanh(self.W(inputs))  # [batch_size, seq_len, hidden_dim*2]
-        
-        # Compute attention scores
-        a_it = self.u(u_it).squeeze(-1)  # [batch_size, seq_len]
-        
-        # Apply mask (set scores of padded elements to a large negative value)
-        a_it = a_it.masked_fill(~mask, float('-1e9'))
-        
-        # Compute attention weights
-        a_it = F.softmax(a_it, dim=1)  # [batch_size, seq_len]
-        
-        # Ensure no NaNs
-        a_it = a_it * mask.float()  # Zero out weights where mask is False
-        a_it = a_it / (a_it.sum(dim=1, keepdim=True) + 1e-9)
-        
-        # Compute weighted sum of inputs
-        context = torch.bmm(a_it.unsqueeze(1), inputs).squeeze(1)  # [batch_size, hidden_dim*2]
-        
-        return context
+
+# In[230]:
 
 
-# In[55]:
 
-
-class MotionModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers):
-        super(MotionModel, self).__init__()
-        self.hidden_dim = hidden_dim
-        self.num_layers = num_layers
-        
-        self.lstm = nn.LSTM(
-            input_dim, hidden_dim, num_layers=num_layers,
-            batch_first=True, bidirectional=True, dropout=0.2
-        )
-        
-        self.attention = AttentionLayer(hidden_dim)
-        
-        self.fc = nn.Sequential(
-            nn.Linear(hidden_dim * 4, 128),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(128, output_dim)
-        )
-    
-    def forward(self, x, lengths):
-        # x: [batch_size, seq_len, input_dim]
-        # lengths: [batch_size]
-        
-        # Pack padded sequence
-        packed_input = nn.utils.rnn.pack_padded_sequence(
-            x, lengths.cpu(), batch_first=True, enforce_sorted=False
-        )
-        
-        # LSTM
-        packed_output, _ = self.lstm(packed_input)
-        
-        # Unpack sequence
-        output, _ = nn.utils.rnn.pad_packed_sequence(
-            packed_output, batch_first=True
-        )
-        # output: [batch_size, seq_len, hidden_dim*2]
-        
-        # Create mask
-        max_len = output.size(1)
-        mask = torch.arange(max_len, device=lengths.device).expand(len(lengths), max_len) < lengths.unsqueeze(1)
-        # mask: [batch_size, seq_len]
-        
-        # Attention
-        context = self.attention(output, mask)
-        
-        # Repeat context to match sequence length
-        context = context.unsqueeze(1).expand(-1, max_len, -1)
-        
-        # Concatenate LSTM outputs with context
-        combined = torch.cat((output, context), dim=2)
-        # combined: [batch_size, seq_len, hidden_dim*4]
-        
-        # Output layer
-        outputs = self.fc(combined)
-        # outputs: [batch_size, seq_len, output_dim]
-        
-        return outputs, mask
 
 
 # ### Step 3: Custom Loss Function
 
-# In[56]:
+# In[107]:
 
 
 def custom_loss(y_pred, y_true, mask):
@@ -355,7 +318,7 @@ def custom_loss(y_pred, y_true, mask):
 
 # ### Step 4: Model Training
 
-# In[57]:
+# In[108]:
 
 
 from torch.nn.utils.rnn import pad_sequence
@@ -383,7 +346,7 @@ test_loader = DataLoader(
 )
 
 
-# In[58]:
+# In[110]:
 
 
 input_dim = X.shape[2]
@@ -407,7 +370,13 @@ model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 
-# In[62]:
+# In[111]:
+
+
+print(input_dim, hidden_dim, output_dim, num_layers)
+
+
+# In[112]:
 
 
 from tqdm import tqdm
@@ -423,10 +392,10 @@ for epoch in range(num_epochs):
     for X_batch, Y_batch, lengths in tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs}"):
         X_batch = X_batch.to(device)
         Y_batch = Y_batch.to(device)
-        lengths = lengths.to(device)
+        lengths = lengths.to(device)  # Original lengths, not padded lengths
         
         optimizer.zero_grad()
-        outputs, mask = model(X_batch, lengths)
+        outputs, mask = model(X_batch, lengths)  # Pass correct lengths for masking
         
         loss = custom_loss(outputs, Y_batch, mask)
         loss.backward()
@@ -444,12 +413,13 @@ for epoch in range(num_epochs):
         for X_batch, Y_batch, lengths in val_loader:
             X_batch = X_batch.to(device)
             Y_batch = Y_batch.to(device)
-            lengths = lengths.to(device)
+            lengths = lengths.to(device)  # Original lengths, not padded lengths
             
-            outputs, mask = model(X_batch, lengths)
+            outputs, mask = model(X_batch, lengths)  # Pass correct lengths for masking
             
             loss = custom_loss(outputs, Y_batch, mask)
             val_loss += loss.item() * X_batch.size(0)
+
     val_loss /= len(val_dataset)
     
     print(f"Epoch {epoch+1}, Train Loss: {train_loss:.6f}, Val Loss: {val_loss:.6f}")
@@ -459,6 +429,11 @@ for epoch in range(num_epochs):
         best_val_loss = val_loss
         epochs_no_improve = 0
         # Save the model
+        torch.save(X_mean, 'X_mean.pth')
+        torch.save(X_std, 'X_std.pth')
+        torch.save(Y_mean, 'Y_mean.pth')
+        torch.save(Y_std, 'Y_std.pth')
+
         torch.save(model.state_dict(), 'best_model.pth')
     else:
         epochs_no_improve += 1
@@ -469,7 +444,7 @@ for epoch in range(num_epochs):
 
 # ### Step 5: Evaluation and Fine-Tuning
 
-# In[63]:
+# In[113]:
 
 
 # Load the best model
@@ -491,49 +466,56 @@ test_loss /= len(test_dataset)
 print(f"Test Loss: {test_loss:.6f}")
 
 
-# In[71]:
+# In[114]:
 
 
+import random
 import matplotlib.pyplot as plt
 
-# Select a sequence from the test set
+# Select a random sequence from the test set
 X_sequence, Y_true_sequence, lengths = next(iter(test_loader))
-sequence_idx = 0
-length = lengths[sequence_idx]
 
+# Randomly select a sequence index within the batch
+sequence_idx = random.randint(0, X_sequence.size(0) - 1)  # Random index from 0 to batch size - 1
+length = lengths_tensor[sequence_idx]  # Ensure the correct original length is used for this sequence
+print(X_sequence.shape)
+
+# Slice up to the true length of the sequence
 X_sequence = X_sequence[sequence_idx:sequence_idx+1, :length].to(device)
 Y_true_sequence = Y_true_sequence[sequence_idx:sequence_idx+1, :length].to(device)
-lengths_sequence = lengths[sequence_idx:sequence_idx+1]
+lengths_sequence = lengths_tensor[sequence_idx:sequence_idx+1]
+print(X_sequence.shape)
 
 # Predict
 model.eval()
 with torch.no_grad():
-    outputs, mask = model(X_sequence, lengths_sequence)
-    
-# Denormalize
+    outputs, mask = model(X_sequence, lengths_sequence)  # Pass the correct sequence length for evaluation
+
+# Denormalize the output and true values
 def denormalize(data, mean, std):
     mean = mean.to(device).unsqueeze(0).unsqueeze(0)
     std = std.to(device).unsqueeze(0).unsqueeze(0)
     return data * std + mean
 
+# Denormalize
 Y_true_denorm = denormalize(Y_true_sequence, Y_mean, Y_std)
 Y_pred_denorm = denormalize(outputs, Y_mean, Y_std)
 
-# Convert to CPU and numpy
+# Convert to CPU and numpy arrays for plotting
 Y_true_denorm = Y_true_denorm.squeeze(0).cpu().numpy()
 Y_pred_denorm = Y_pred_denorm.squeeze(0).cpu().numpy()
 
-# Plot true vs predicted positions for a joint
+# Plot true vs predicted positions for a specific joint and coordinate
 joint_idx = 0  # First joint
 coordinate_idx = 0  # X-coordinate
 
 plt.figure(figsize=(12, 6))
 plt.plot(
-    Y_true_denorm[:length, joint_idx * 3 + coordinate_idx],
+    Y_true_denorm[:length, joint_idx * 3 + coordinate_idx],  # Only plot non-padded values
     label='True Position',
 )
 plt.plot(
-    Y_pred_denorm[:length, joint_idx * 3 + coordinate_idx],
+    Y_pred_denorm[:length, joint_idx * 3 + coordinate_idx],  # Only plot non-padded values
     label='Predicted Position',
 )
 plt.title('Joint Position Over Time')
@@ -543,8 +525,26 @@ plt.legend()
 plt.show()
 
 
-# In[69]:
+# In[115]:
+
+
+lengths_tensor[0]
+
+
+# In[ ]:
+
+
+
+
+
+# In[116]:
 
 
 get_ipython().system('jupyter nbconvert --to script Code/preprocessing/preprocess.ipynb')
+
+
+# In[ ]:
+
+
+
 
