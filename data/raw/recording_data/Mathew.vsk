@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no" ?>
+<KinematicModel MODEL="FinalArmTemplate" VERSION="2.5" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://www.vicon.com/Schemas/ViconVST.xsd">
+
+  <Parameters>
+    <Parameter HIDDEN="1" NAME="UpperArm_Length" PRIOR="220.411529541016" SD="0" VALUE="342.427551269531"/>
+    <Parameter HIDDEN="1" NAME="UpperArm_Unlabeled190_y" PRIOR="13.3434505462646" SD="0" VALUE="41.0022506713867"/>
+    <Parameter HIDDEN="1" NAME="UpperArm_Unlabeled190_z" PRIOR="-95.7676391601563" SD="0" VALUE="-199.212432861328"/>
+    <Parameter HIDDEN="1" NAME="LowerArm_Length" PRIOR="282.305053710938" SD="0" VALUE="252.93408203125"/>
+    <Parameter HIDDEN="1" NAME="LowerArm_Unlabeled191_y" PRIOR="22.0122833251953" SD="0" VALUE="14.8207635879517"/>
+    <Parameter HIDDEN="1" NAME="LowerArm_Unlabeled191_z" PRIOR="-164.383728027344" SD="0" VALUE="-134.897247314453"/>
+    <Parameter HIDDEN="1" NAME="HandOuter_Length" PRIOR="103.508773803711" SD="0" VALUE="99.3382034301758"/>
+    <Parameter HIDDEN="1" NAME="Thumb_Length" PRIOR="73.7494888305664" SD="0" VALUE="42.1677589416504"/>
+  </Parameters>
+
+  <Skeleton>
+    <Segment BOUNDS="-22.0412 -22.0412 -'UpperArm_Length' 22.0412 22.0412 0" CONTEXT="General" INERTIA="0 0 0 " MASS="0 " MASS-CENTRE="0 0 0 " NAME="UpperArm" RGB="255 164 0">
+      <JointFree BOUNDS="0 0 0 0 0 0 0 0 0 0 0 0" COVARIANCE="2.46490001678467 0 0 0 0 0  0 2.46490001678467 0 0 0 0  0 0 246.490005493164 0 0 0  0 0 0 1000000 0 0  0 0 0 0 1000000 0  0 0 0 0 0 1000000  " MEAN="0 0 0 0 0 0" NAME="World_UpperArm" POST-ORIENTATION="0 0 0" POST-POSITION="0 0 0" PRE-ORIENTATION="0 0 0" PRE-POSITION="0 0 0" SIGNS="+ + + + + + " T="* * * * * * ">
+        <JointTemplate COVARIANCE="2.46490001678467 0 0 0 0 0  0 2.46490001678467 0 0 0 0  0 0 246.490005493164 0 0 0  0 0 0 1000000 0 0  0 0 0 0 1000000 0  0 0 0 0 0 1000000  " MEAN="0 0 0 0 0 0" POST-ORIENTATION="0 0 0 " POST-POSITION="0 0 0 " PRE-ORIENTATION="0 0 0 " PRE-POSITION="0 0 0 " TPOSE-COVARIANCE="0.100000001490116 0 0 0 0 0  0 0.100000001490116 0 0 0 0  0 0 0.100000001490116 0 0 0  0 0 0 0.100000001490116 0 0  0 0 0 0 0.100000001490116 0  0 0 0 0 0 0.100000001490116  " TPOSE-MEAN="0 0 0 0 0 0"/>
+      </JointFree>
+      <Segment BOUNDS="-28.2305 -28.2305 -'LowerArm_Length' 28.2305 28.2305 0" CONTEXT="General" INERTIA="0 0 0 " MASS="0 " MASS-CENTRE="0 0 0 " NAME="LowerArm" RGB="255 164 0">
+        <JointBall BOUNDS="0 0 0 0 0 0" COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" NAME="UpperArm_LowerArm" POST-ORIENTATION="0 0 0" POST-POSITION="0 0 0" PRE-ORIENTATION="-0.443394005298615 -0.457118004560471 1.89642000198364" PRE-POSITION="-3.35004006046802e-006 -1.24897997011431e-006 -342.427551269531" SIGNS="+ + + " T="* * * ">
+          <JointTemplate COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" POST-ORIENTATION="0 0 0 " POST-POSITION="0 0 0 " PRE-ORIENTATION="-0.443394 -0.457118 1.89642 " PRE-POSITION="-3.35004e-006 -1.24898e-006 -'UpperArm_Length'" TPOSE-COVARIANCE="0.100000001490116 0 0  0 0.100000001490116 0  0 0 0.100000001490116  " TPOSE-MEAN="0 0 0"/>
+        </JointBall>
+        <Segment BOUNDS="-10.3509 -10.3509 -'HandOuter_Length' 10.3509 10.3509 0" CONTEXT="General" INERTIA="0 0 0 " MASS="0 " MASS-CENTRE="0 0 0 " NAME="HandOuter" RGB="255 164 0">
+          <JointBall BOUNDS="0 0 0 0 0 0" COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" NAME="LowerArm_HandOuter" POST-ORIENTATION="0 0 0" POST-POSITION="-4.88944010612613e-007 -65.6138000488281 39.0340995788574" PRE-ORIENTATION="-1.17042005062103 2.03906011581421 2.69412994384766" PRE-POSITION="0.000111966000986286 -7.3740397056099e-005 -252.93408203125" SIGNS="+ + + " T="* * * ">
+            <JointTemplate COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" POST-ORIENTATION="0 0 0 " POST-POSITION="-4.88944e-007 -65.6138 39.0341 " PRE-ORIENTATION="-1.17042 2.03906 2.69413 " PRE-POSITION="0.000111966 -7.37404e-005 -'LowerArm_Length'" TPOSE-COVARIANCE="0.100000001490116 0 0  0 0.100000001490116 0  0 0 0.100000001490116  " TPOSE-MEAN="0 0 0"/>
+          </JointBall>
+          <Segment BOUNDS="-7.37495 -7.37495 -'Thumb_Length' 7.37495 7.37495 0" CONTEXT="General" INERTIA="0 0 0 " MASS="0 " MASS-CENTRE="0 0 0 " NAME="Thumb" RGB="255 164 0">
+            <JointBall BOUNDS="0 0 0 0 0 0" COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" NAME="HandOuter_Thumb" POST-ORIENTATION="0 0 0" POST-POSITION="0 0 0" PRE-ORIENTATION="-1.61529004573822 -0.36540099978447 0.175132006406784" PRE-POSITION="3.57725002686493e-005 -0.000148032995639369 -99.3382034301758" SIGNS="+ + + " T="* * * ">
+              <JointTemplate COVARIANCE="0.785000026226044 0 0  0 0.785000026226044 0  0 0 0.785000026226044  " MEAN="0 0 0" POST-ORIENTATION="0 0 0 " POST-POSITION="0 0 0 " PRE-ORIENTATION="-1.61529 -0.365401 0.175132 " PRE-POSITION="3.57725e-005 -0.000148033 -'HandOuter_Length'" TPOSE-COVARIANCE="0.100000001490116 0 0  0 0.100000001490116 0  0 0 0.100000001490116  " TPOSE-MEAN="0 0 0"/>
+            </JointBall>
+          </Segment>
+        </Segment>
+      </Segment>
+    </Segment>
+  </Skeleton>
+
+  <MarkerSet>
+    <Markers>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="shoulder" POSITION="0 0 0" RADIUS="12.5" RGB="255 164 0" SEGMENT="UpperArm" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 0"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="shoulderElbowSupport" POSITION="0 41.0023 -199.212" RADIUS="12.5" RGB="255 164 0" SEGMENT="UpperArm" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 'UpperArm_Unlabeled190_y' 'UpperArm_Unlabeled190_z'"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="elbow" POSITION="0 0 -342.428" RADIUS="12.5" RGB="255 164 0" SEGMENT="UpperArm" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 -'UpperArm_Length'"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="wrist" POSITION="0 0 -252.934" RADIUS="12.5" RGB="255 164 0" SEGMENT="LowerArm" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 -'LowerArm_Length'"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="elbowWrist" POSITION="0 14.8208 -134.897" RADIUS="12.5" RGB="255 164 0" SEGMENT="LowerArm" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 'LowerArm_Unlabeled191_y' 'LowerArm_Unlabeled191_z'"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="Triangle1" POSITION="0 0 0" RADIUS="12.5" RGB="255 164 0" SEGMENT="HandOuter" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 0"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="Triangle2" POSITION="0 0 -99.3382" RADIUS="12.5" RGB="255 164 0" SEGMENT="HandOuter" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 -'HandOuter_Length'"/>
+      </Marker>
+      <Marker COVARIANCE="1 0 0 0 1 0 0 0 1 " NAME="ThumbTip" POSITION="0 0 -42.1678" RADIUS="12.5" RGB="255 164 0" SEGMENT="Thumb" STATUS="required">
+        <MarkerTemplate COVARIANCE="1 0 0 0 1 0 0 0 1 " PLACEMENT-COVARIANCE="1 0 0 0 1 0 0 0 1 " POSITION="0 0 -'Thumb_Length'"/>
+      </Marker>
+    </Markers>
+    <Sticks>
+      <Stick MARKER1="shoulder" MARKER2="shoulderElbowSupport" RGB="255 164 0"/>
+      <Stick MARKER1="shoulder" MARKER2="elbow" RGB="255 164 0"/>
+      <Stick MARKER1="shoulderElbowSupport" MARKER2="elbow" RGB="255 164 0"/>
+      <Stick MARKER1="elbow" MARKER2="wrist" RGB="255 164 0"/>
+      <Stick MARKER1="elbow" MARKER2="elbowWrist" RGB="255 164 0"/>
+      <Stick MARKER1="wrist" MARKER2="elbowWrist" RGB="255 164 0"/>
+      <Stick MARKER1="wrist" MARKER2="Triangle1" RGB="255 164 0"/>
+      <Stick MARKER1="wrist" MARKER2="Triangle2" RGB="255 164 0"/>
+      <Stick MARKER1="Triangle1" MARKER2="Triangle2" RGB="255 164 0"/>
+      <Stick MARKER1="Triangle2" MARKER2="ThumbTip" RGB="255 164 0"/>
+    </Sticks>
+  </MarkerSet>
+
+  <Alignment/>
+
+</KinematicModel>
