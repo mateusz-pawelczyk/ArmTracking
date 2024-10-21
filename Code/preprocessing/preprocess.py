@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[97]:
+# In[117]:
 
 
 import pandas as pd
@@ -11,20 +11,20 @@ import torch
 os.chdir('/home/tm_ba/Desktop/Bachelorarbeit_code')
 
 
-# In[98]:
+# In[118]:
 
 
 df = pd.read_csv("csv_new/processed_Trajectories.csv")
 df
 
 
-# In[99]:
+# In[119]:
 
 
 df.value_counts("Sequence")
 
 
-# In[100]:
+# In[120]:
 
 
 # Joints of interest
@@ -68,13 +68,13 @@ print(f"X range: {X.min()} to {X.max()}",)
 print(f"Y range: {Y.min()} to {Y.max()}",)
 
 
-# In[101]:
+# In[121]:
 
 
 full_data.value_counts("Sequence")
 
 
-# In[102]:
+# In[122]:
 
 
 import torch
@@ -119,14 +119,14 @@ print("Lengths shape:", lengths_tensor.shape)
 
 # ### Step 1: Data Normalization
 
-# In[103]:
+# In[123]:
 
 
 from Code.preprocessing.Model import MotionModel, AttentionLayer
 from Code.preprocessing.TransformerModel import MotionTransformerModel
 
 
-# In[104]:
+# In[124]:
 
 
 import torch
@@ -157,7 +157,7 @@ class MotionDataset(Dataset):
         return X_item, Y_item
 
 
-# In[105]:
+# In[125]:
 
 
 import torch
@@ -250,7 +250,7 @@ print(f"Test dataset length: {len(test_dataset)}")
 
 # ### Step 2: Model Implementation
 
-# In[106]:
+# In[126]:
 
 
 import torch.nn as nn
@@ -265,7 +265,7 @@ import torch.nn.functional as F
 
 # ### Step 3: Custom Loss Function
 
-# In[107]:
+# In[127]:
 
 
 def custom_loss(y_pred, y_true, mask):
@@ -318,7 +318,7 @@ def custom_loss(y_pred, y_true, mask):
 
 # ### Step 4: Model Training
 
-# In[108]:
+# In[128]:
 
 
 from torch.nn.utils.rnn import pad_sequence
@@ -346,7 +346,7 @@ test_loader = DataLoader(
 )
 
 
-# In[110]:
+# In[129]:
 
 
 input_dim = X.shape[2]
@@ -370,13 +370,13 @@ model.to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 
-# In[111]:
+# In[130]:
 
 
 print(input_dim, hidden_dim, output_dim, num_layers)
 
 
-# In[112]:
+# In[131]:
 
 
 from tqdm import tqdm
@@ -444,7 +444,7 @@ for epoch in range(num_epochs):
 
 # ### Step 5: Evaluation and Fine-Tuning
 
-# In[113]:
+# In[132]:
 
 
 # Load the best model
@@ -466,7 +466,7 @@ test_loss /= len(test_dataset)
 print(f"Test Loss: {test_loss:.6f}")
 
 
-# In[114]:
+# In[133]:
 
 
 import random
@@ -525,7 +525,7 @@ plt.legend()
 plt.show()
 
 
-# In[115]:
+# In[134]:
 
 
 lengths_tensor[0]
@@ -537,7 +537,7 @@ lengths_tensor[0]
 
 
 
-# In[116]:
+# In[135]:
 
 
 get_ipython().system('jupyter nbconvert --to script Code/preprocessing/preprocess.ipynb')
