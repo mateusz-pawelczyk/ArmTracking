@@ -117,6 +117,20 @@ def calculate_velocity(positions: np.ndarray, sampling_rate: int = DEFAULT_SAMPL
     velocity = np.linalg.norm(np.diff(positions, axis=0), axis=1) * sampling_rate
     return np.concatenate([velocity, [0]])  # Append zero for final frame consistency
 
+def calculate_acceleration(velocity: np.ndarray, sampling_rate: int = DEFAULT_SAMPLING_RATE) -> np.ndarray:
+    """
+    Calculate acceleration based on velocity data.
+
+    Args:
+        velocity (np.ndarray): Array of joint velocities.
+        sampling_rate (int): Sampling rate in Hz.
+
+    Returns:
+        np.ndarray: Array of accelerations for each frame.
+    """
+    acceleration = np.diff(velocity) * sampling_rate
+    return np.concatenate([acceleration, [0]])  # Append zero for final frame consistency
+
 def calculate_mse(true_velocities: np.ndarray, smoothed_velocities: np.ndarray) -> float:
     """
     Compute Mean Squared Error between original and smoothed velocities.
@@ -148,7 +162,7 @@ class SmoothingVisualizer:
     def visualize_smoothing(self, sequence_id: int, joint: str, method: str = "kalman", frames: int = 100):
         """
         Generate and display an animation comparing original and smoothed velocities,
-        along with a dynamic MSE plot.
+        accelerations, along with a dynamic MSE plot.
 
         Args:
             sequence_id (int): Sequence index to visualize.
@@ -170,8 +184,8 @@ class SmoothingVisualizer:
             func = apply_savgol_filter
             param_range = np.round(np.linspace(3, 100, frames)).astype(int)
 
-        velocities = self._compute_velocities(sequence_data, func, param_range)
-        self._create_animation(sequence_data, velocities, joint, param_range)
+        velocities, accelerations = self._compute_velocities_accelerations(sequence_data, func, param_range)
+        self._create_animation(sequence_data, velocities, accelerations, joint, param_range)
 
     def _extract_sequence_data(self, sequence_id: int, joint: str) -> np.ndarray:
         """
@@ -187,9 +201,9 @@ class SmoothingVisualizer:
         joint_columns = [f"{joint}:X", f"{joint}:Y", f"{joint}:Z"]
         return self.df[self.df['Sequence'] == sequence_id][joint_columns].dropna().values
 
-    def _compute_velocities(self, original_data: np.ndarray, func, param_range) -> dict:
+    def _compute_velocities_accelerations(self, original_data: np.ndarray, func, param_range) -> tuple:
         """
-        Compute velocities for original and smoothed data, and calculate MSE.
+        Compute velocities and accelerations for original and smoothed data, and calculate MSE.
 
         Args:
             original_data (np.ndarray): Original joint position data.
@@ -197,22 +211,28 @@ class SmoothingVisualizer:
             param_range: Range of smoothing factors.
 
         Returns:
-            dict: Dictionary containing original velocities, smoothed velocities, and MSE values.
+            tuple: Dictionary containing velocities, accelerations and MSE values.
         """
         original_velocity = calculate_velocity(original_data, self.sampling_rate)
+        original_acceleration = calculate_acceleration(original_velocity, self.sampling_rate)
+
         smoothed_data = func(original_data, param_range)
         smoothed_velocities = [calculate_velocity(data, self.sampling_rate) for data in smoothed_data]
-        mse_values = [calculate_mse(original_velocity, sv) for sv in smoothed_velocities]
-        return {'original': original_velocity, 'smoothed': smoothed_velocities, 'mse': mse_values}
+        smoothed_accelerations = [calculate_acceleration(velocity, self.sampling_rate) for velocity in smoothed_velocities]
 
-    def _create_animation(self, sequence_data: np.ndarray, velocities: dict, joint: str, smoothness_factors: list):
+        mse_values = [calculate_mse(original_velocity, sv) for sv in smoothed_velocities]
+        return {'original': original_velocity, 'smoothed': smoothed_velocities, 'mse': mse_values}, \
+               {'original': original_acceleration, 'smoothed': smoothed_accelerations}
+
+    def _create_animation(self, sequence_data: np.ndarray, velocities: dict, accelerations: dict, joint: str, smoothness_factors: list):
         """
-        Create the smoothing animation comparing original and smoothed velocities,
+        Create the smoothing animation comparing original and smoothed velocities, accelerations,
         along with a dynamic MSE plot.
 
         Args:
             sequence_data (np.ndarray): Original joint position data.
             velocities (dict): Dictionary containing velocities and MSE.
+            accelerations (dict): Dictionary containing accelerations.
             joint (str): Joint name (e.g., 'wrist').
             smoothness_factors (list): List of smoothness factors for smoothing.
         """
@@ -220,8 +240,11 @@ class SmoothingVisualizer:
         smoothed_velocities = velocities['smoothed']
         mse_values = velocities['mse']
 
-        # Create subplots: 1 for the velocity comparison, 1 for the MSE plot
-        fig, axs = plt.subplots(3, 1, figsize=(10, 8), gridspec_kw={'height_ratios': [0.3, 1, 0.5]})
+        original_acceleration = accelerations['original']
+        smoothed_accelerations = accelerations['smoothed']
+
+        # Create subplots: 1 for the velocity comparison, 1 for acceleration, and 1 for the MSE plot
+        fig, axs = plt.subplots(4, 1, figsize=(10, 10), gridspec_kw={'height_ratios': [0.3, 1, 1, 0.5]})
         text_ax = axs[0]
         text_ax.axis('off')
         text_display = text_ax.text(0.5, 0.5, '', transform=text_ax.transAxes, fontsize=14, ha='center', va='center')
@@ -229,6 +252,10 @@ class SmoothingVisualizer:
         # Precompute axis limits to avoid dynamic updates
         velocity_min = np.min([original_velocity] + smoothed_velocities) * 1.1
         velocity_max = np.max([original_velocity] + smoothed_velocities) * 1.1
+
+        acceleration_min = np.min([original_acceleration] + smoothed_accelerations) * 1.1
+        acceleration_max = np.max([original_acceleration] + smoothed_accelerations) * 1.1
+
         mse_min = 0
         mse_max = max(mse_values) * 1.1
 
@@ -242,14 +269,24 @@ class SmoothingVisualizer:
         axs[1].set_ylabel('Velocity (Euclidean)')
         axs[1].legend()
 
-        # MSE plot
-        mse_line, = axs[2].plot([], [], label='MSE', color='red', lw=2)
-        axs[2].set_xlim(smoothness_factors[0], smoothness_factors[-1])
-        axs[2].set_ylim(mse_min, mse_max)
-        axs[2].set_xlabel('Smoothing Factor')
-        axs[2].set_ylabel('MSE')
-        axs[2].set_title('Mean Squared Error Over Smoothing Factors')
+        # Acceleration plot
+        original_accel_line, = axs[2].plot([], [], label='Original Acceleration', lw=2)
+        smoothed_accel_line, = axs[2].plot([], [], label='Smoothed Acceleration', lw=2)
+        axs[2].set_title(f'{joint.capitalize()} Acceleration', fontsize=12)
+        axs[2].set_xlim(0, len(sequence_data))
+        axs[2].set_ylim(acceleration_min, acceleration_max)
+        axs[2].set_xlabel('Frame')
+        axs[2].set_ylabel('Acceleration (Euclidean)')
         axs[2].legend()
+
+        # MSE plot
+        mse_line, = axs[3].plot([], [], label='MSE', color='red', lw=2)
+        axs[3].set_xlim(smoothness_factors[0], smoothness_factors[-1])
+        axs[3].set_ylim(mse_min, mse_max)
+        axs[3].set_xlabel('Smoothing Factor')
+        axs[3].set_ylabel('MSE')
+        axs[3].set_title('Mean Squared Error Over Smoothing Factors')
+        axs[3].legend()
 
         # Data for the x-axis of the MSE plot
         mse_xdata = []
@@ -260,11 +297,16 @@ class SmoothingVisualizer:
                 return  # Skip updating if paused
             
             smoothed_velocity = smoothed_velocities[frame]
+            smoothed_acceleration = smoothed_accelerations[frame]
             mse_value = mse_values[frame]
 
             # Update velocity lines
             original_line.set_data(np.arange(len(original_velocity)), original_velocity)
             smoothed_line.set_data(np.arange(len(smoothed_velocity)), smoothed_velocity)
+
+            # Update acceleration lines
+            original_accel_line.set_data(np.arange(len(original_acceleration)), original_acceleration)
+            smoothed_accel_line.set_data(np.arange(len(smoothed_acceleration)), smoothed_acceleration)
 
             # Update MSE data
             mse_xdata.append(smoothness_factors[frame])
@@ -274,13 +316,13 @@ class SmoothingVisualizer:
             # Update smoothing factor and MSE text
             text_display.set_text(f'Smoothing Factor: {smoothness_factors[frame]:.2f} | MSE: {mse_value:.5f}')
             
-            return [text_display, original_line, smoothed_line, mse_line]
+            return [text_display, original_line, smoothed_line, original_accel_line, smoothed_accel_line, mse_line]
 
         # Reset the MSE plot data on each repeat
         def init():
             mse_xdata.clear()
             mse_ydata.clear()
-            return [text_display, original_line, smoothed_line, mse_line]
+            return [text_display, original_line, smoothed_line, original_accel_line, smoothed_accel_line, mse_line]
 
         # Event handler to pause/resume animation
         def on_click(event):
@@ -312,7 +354,7 @@ def main():
     smoothness_factors = np.linspace(0, 0.5, 100)
     
     # Visualize smoothing for a specific sequence and joint
-    visualizer.visualize_smoothing(sequence_id=10, joint="wrist", method="kalman", frames=100)
+    visualizer.visualize_smoothing(sequence_id=10, joint="wrist", method="ema", frames=100)
 
 if __name__ == "__main__":
     main()

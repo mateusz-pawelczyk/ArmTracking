@@ -143,16 +143,16 @@ def visualize_two_sequences(df1, sequence_index1, df2, sequence_index2, animatio
 # Example usage
 if __name__ == "__main__":
     # Example dataset structure
-    TRAJECTORIES_PATH = "data/raw/tables/Trajectories.csv"
+    TRAJECTORIES_PATH = "data/processed/tables/Cleaned_Trajectories.csv"
 
     seq = 10
 
     df = pd.read_csv(TRAJECTORIES_PATH)
-    df_interpolated = interpolate_missing_data(df)
-    df = df_interpolated[df_interpolated["Sequence"] == seq]
+    # df_interpolated = interpolate_missing_data(df)
+    # df = df_interpolated[df_interpolated["Sequence"] == seq]
 
-    df_smoothed = apply_kalman_filter_df(df_interpolated, smoothness_factor=1)
+    #df_smoothed = apply_kalman_filter_df(df_interpolated, smoothness_factor=1)
 
 
     # Visualize arm movement for sequence 1
-    visualize_two_sequences(df_smoothed, seq, df, seq, animation_speed=(1000/200))
+    visualize_two_sequences(df, seq, df, seq, animation_speed=(1000/200))
