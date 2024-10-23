@@ -102,7 +102,11 @@ df_outliers = detect_clustered_outliers(df_interpolated, df_outliers, window_wid
 
 # set outliers to NaN
 df_cleaned = df_interpolated.copy()
-df_cleaned[df_outliers.filter(like='is_outlier').any(axis=1)] = np.nan
+
+
+joints = [col for col in df_cleaned.columns if ":" in col]
+for joint in joints:
+    df_cleaned.loc[df_outliers[f"is_outlier_{joint}"], joint] = np.nan
 
 # interpolate again
 df_cleaned = interpolate_missing_data(df_cleaned)
@@ -117,4 +121,4 @@ CLEANED_TRAJECTORIES_PATH = "data/processed/tables/Cleaned_Trajectories.csv"
 # Create the output directory if it doesn't exist
 os.makedirs(os.path.dirname(CLEANED_TRAJECTORIES_PATH), exist_ok=True)
 
-df_cleaned.to_csv(os.path.join(PROJECT_ROOT_DIR,CLEANED_TRAJECTORIES_PATH), index=False)
+df_smoothed.to_csv(os.path.join(PROJECT_ROOT_DIR,CLEANED_TRAJECTORIES_PATH), index=False)
